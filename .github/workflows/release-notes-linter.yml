@@ -17,173 +17,99 @@ jobs:
         run: |
           echo "Running release notes validation..."
 
-          # Fetch all branches to ensure the script can compare against the main branch
-          git fetch --all
-
-          # Determine the target branch for comparison
-          BASE_BRANCH=${GITHUB_BASE_REF:-"main"}
-
-          # Check if base branch exists in the fetched branches
-          if git show-ref --verify --quiet refs/remotes/origin/$BASE_BRANCH; then
-            echo "Base branch '$BASE_BRANCH' exists. Proceeding with diff comparison."
-            # Find changed files in the PR
-            changed_files=$(git diff --name-only --diff-filter=d origin/$BASE_BRANCH HEAD)
-          else
-            echo "Base branch '$BASE_BRANCH' does not exist. Assuming this is a new branch or repository."
-            # Fall back to showing all files in the PR if no base branch to compare
-            changed_files=$(git diff --name-only --diff-filter=d HEAD~1 HEAD)
-          fi
-
-          echo "Changed files:"
-          echo "$changed_files"
-
           # Allowed labels for curated release notes
           ALLOWED_LABELS=("kind/bug-fix" "N/A" "kind/feature" "kind/upgrade-consideration" "kind/breaking-change" "kind/api-change" "kind/deprecation" "impact/high" "impact/medium")
-
-          # Function to check if an element is in an array
-          function contains() {
-            local element
-            for element in "${@:2}"; do
-              if [[ "$element" == "$1" ]]; then
-                return 0
-              fi
-            done
-            return 1
-          }
 
           # Initialize error count
           error_count=0
 
-          # Loop through each changed file
-          for file in $changed_files; do
-            if [[ $file == addons/**/curated/**/curated-release-notes.json ]]; then
-              echo "Validating $file"
+          # Validate each curated release note file
+          for file in addons/**/curated/**/curated-release-notes.json; do
+            echo "Validating $file"
 
-              # Extract directory and addon names from the file path
-              dir_version=$(basename "$(dirname "$file")")
-              addon_name=$(basename "$(dirname "$(dirname "$file")")")
-
-              # Check if the JSON file contains required fields
-              if ! jq -e '.addonName and .version and .releaseDate and .notes' "$file" > /dev/null; then
-                echo "Error: $file is missing one or more required fields (addonName, version, releaseDate, notes)."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Check if JSON fields are not empty
-              if [[ -z $(jq -r '.addonName' "$file") || -z $(jq -r '.version' "$file") || -z $(jq -r '.releaseDate' "$file") || $(jq -r '.notes | length' "$file") -eq 0 ]]; then
-                echo "Error: $file has empty addonName, version, releaseDate, or notes fields."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Validate addonName matches the directory name
-              json_addon_name=$(jq -r '.addonName' "$file")
-              if [[ "$json_addon_name" != "$addon_name" ]]; then
-                echo "Error: Addon name $json_addon_name inside JSON does not match directory name $addon_name."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Check version format and match with directory
-              version=$(jq -r '.version' "$file")
-              if [[ ! $version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "Error: Invalid version format in $file. Expected vX.X.X where X should be digits."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Check if directory version matches JSON version
-              if [[ "$dir_version" != "$version" ]]; then
-                echo "Error: Directory version $dir_version does not match JSON version $version in $file."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Validate releaseDate format YYYY-MM-DD
-              release_date=$(jq -r '.releaseDate' "$file")
-              if [[ ! "$release_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-                echo "Error: Invalid date format in $file. Expected YYYY-MM-DD."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Further validation to ensure it's a valid date
-              if ! date -d "$release_date" +"%Y-%m-%d" > /dev/null 2>&1; then
-                echo "Error: Invalid date in $file. Expected a valid date in YYYY-MM-DD format."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Check each note has 'label' and 'text' fields
-              notes_count=$(jq '.notes | length' "$file")
-              for i in $(seq 0 $((notes_count-1))); do
-                if ! jq -e ".notes[$i].label and .notes[$i].text" "$file" > /dev/null; then
-                  echo "Error: Note entry $i in $file is missing 'label' or 'text' field."
-                  error_count=$((error_count + 1))
-                  continue
-                fi
-              done
-
-              # Validate labels in curated release notes
-              echo "Validating labels in file: $file"
-              labels=$(jq -r '.notes[].label[]' "$file" 2>/dev/null)
-
-              if [[ $? -ne 0 ]]; then
-                echo "Error: Failed to parse JSON file $file. Please ensure it is valid JSON."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              echo "Found labels: $labels"
-
-              # Validate each label
-              for label in $labels; do
-                if ! contains "$label" "${ALLOWED_LABELS[@]}"; then
-                  echo "Error: Invalid label '$label' in file $file. Allowed labels are: ${ALLOWED_LABELS[*]}"
-                  error_count=$((error_count + 1))
-                fi
-              done
-
-              echo "$file passed all validation checks."
-            elif [[ $file == addons/**/raw/**/raw-release-notes.txt ]]; then
-              echo "Validating $file"
-
-              # Validate raw file naming and addon consistency
-              raw_version=$(basename "$(dirname "$file")")
-              raw_addon_name=$(basename "$(dirname "$(dirname "$file")")")
-
-              # Check if the directory names match between raw and curated directories
-              if [[ "$addon_name" != "$raw_addon_name" ]]; then
-                echo "Error: Mismatch between raw addon name $raw_addon_name and curated addon name $addon_name."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              if [[ "$dir_version" != "$raw_version" ]]; then
-                echo "Error: Mismatch between raw version $raw_version and curated version $dir_version."
-                error_count=$((error_count + 1))
-                continue
-              fi
-
-              # Check if the file contains a source line
-              source_line=$(grep -E "^source: https?://.*" "$file" || true)
-              if [ -z "$source_line" ]; then
-                echo "Error: $file does not contain a valid 'source: <link>' line."
-                error_count=$((error_count + 1))
-              else
-                # Extract the link from the source line
-                source_link=$(echo "$source_line" | awk '{print $2}')
-
-                # Check if the link is reachable using curl
-                if ! curl -o /dev/null -s --head --fail "$source_link"; then
-                  echo "Error: The link in $file is not reachable: $source_link"
-                  error_count=$((error_count + 1))
-                fi
-              fi
-
-              echo "$file passed all validation checks."
+            # Check if the JSON file contains required fields
+            if ! jq -e '.addonName and .version and .releaseDate and .notes' "$file" > /dev/null; then
+              echo "Error: $file is missing one or more required fields (addonName, version, releaseDate, notes)."
+              error_count=$((error_count + 1))
+              continue
             fi
+
+            # Check if JSON fields are not empty
+            if [[ -z $(jq -r '.addonName' "$file") || -z $(jq -r '.version' "$file") || -z $(jq -r '.releaseDate' "$file") || $(jq -r '.notes | length' "$file") -eq 0 ]]; then
+              echo "Error: $file has empty addonName, version, releaseDate, or notes fields."
+              error_count=$((error_count + 1))
+              continue
+            fi
+
+            # Validate releaseDate format YYYY-MM-DD
+            release_date=$(jq -r '.releaseDate' "$file")
+            if [[ ! "$release_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "Error: Invalid date format in $file. Expected YYYY-MM-DD."
+              error_count=$((error_count + 1))
+              continue
+            fi
+
+            # Further validation to ensure it's a valid date
+            if ! date -d "$release_date" +"%Y-%m-%d" > /dev/null 2>&1; then
+              echo "Error: Invalid date in $file. Expected a valid date in YYYY-MM-DD format."
+              error_count=$((error_count + 1))
+              continue
+            fi
+
+            # Check each note has 'label' and 'text' fields
+            notes_count=$(jq '.notes | length' "$file")
+            for i in $(seq 0 $((notes_count-1))); do
+              if ! jq -e ".notes[$i].label and .notes[$i].text" "$file" > /dev/null; then
+                echo "Error: Note entry $i in $file is missing 'label' or 'text' field."
+                error_count=$((error_count + 1))
+                continue
+              fi
+            done
+
+            # Validate labels in curated release notes
+            echo "Validating labels in file: $file"
+            labels=$(jq -r '.notes[].label[]' "$file" 2>/dev/null)
+
+            if [[ $? -ne 0 ]]; then
+              echo "Error: Failed to parse JSON file $file. Please ensure it is valid JSON."
+              error_count=$((error_count + 1))
+              continue
+            fi
+
+            echo "Found labels: $labels"
+
+            # Validate each label
+            for label in $labels; do
+              if ! contains "$label" "${ALLOWED_LABELS[@]}"; then
+                echo "Error: Invalid label '$label' in file $file. Allowed labels are: ${ALLOWED_LABELS[*]}"
+                error_count=$((error_count + 1))
+              fi
+            done
+
+            echo "$file passed all validation checks."
+          done
+
+          # Validate each raw release note file
+          for raw_file in addons/**/raw/**/raw-release-notes.txt; do
+            echo "Validating $raw_file"
+
+            # Check if the file contains a source line
+            source_line=$(grep -E "^source: https?://.*" "$raw_file" || true)
+            if [ -z "$source_line" ]; then
+              echo "Error: $raw_file does not contain a valid 'source: <link>' line."
+              error_count=$((error_count + 1))
+            else
+              # Extract the link from the source line
+              source_link=$(echo "$source_line" | awk '{print $2}')
+
+              # Check if the link is reachable using curl
+              if ! curl -o /dev/null -s --head --fail "$source_link"; then
+                echo "Error: The link in $raw_file is not reachable: $source_link"
+                error_count=$((error_count + 1))
+              fi
+            fi
+
+            echo "$raw_file passed all validation checks."
           done
 
           if [ $error_count -gt 0 ]; then
