@@ -37,8 +37,9 @@ jobs:
           allowed_labels=("kind/bug-fix" "N/A" "kind/feature" "kind/upgrade-consideration" "kind/breaking-change" "kind/api-change" "kind/deprecation" "impact/high" "impact/medium")
           labels=("$@")
           for label in "${labels[@]}"; do
-            if [[ ! " ${allowed_labels[@]} " =~ " $label " ]]; then
-              echo "Invalid label: $label. Allowed labels are: ${allowed_labels[*]}"
+            trimmed_label=$(echo "$label" | xargs)  # Trim spaces
+            if [[ ! " ${allowed_labels[@]} " =~ " $trimmed_label " ]]; then
+              echo "Invalid label: $trimmed_label. Allowed labels are: ${allowed_labels[*]}"
               exit 1
             fi
           done
@@ -76,7 +77,10 @@ jobs:
 
             # Split labels by comma and validate each
             IFS=',' read -ra labels <<< "$label"
-            validate_labels "${labels[@]}"
+            for i in "${labels[@]}"; do
+              trimmed_label=$(echo "$i" | xargs)  # Trim spaces
+              validate_labels "$trimmed_label"
+            done
           done
         }
 
