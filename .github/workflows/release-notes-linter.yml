@@ -23,14 +23,12 @@ jobs:
       run: |
         #!/bin/bash
 
-        # Error tracking
-        errors=()
-
         # Function to validate date format
         validate_date_format() {
           date="$1"
           if ! [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-            errors+=("Invalid date format: $date. Expected format: YYYY-MM-DD.")
+            echo "Invalid date format: $date. Expected format: YYYY-MM-DD."
+            exit 1
           fi
         }
 
@@ -41,7 +39,8 @@ jobs:
           for label in "${labels[@]}"; do
             trimmed_label=$(echo "$label" | xargs)  # Trim spaces
             if [[ ! " ${allowed_labels[*]} " =~ " ${trimmed_label} " ]]; then
-              errors+=("Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}")
+              echo "Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}"
+              exit 1
             fi
           done
         }
@@ -49,54 +48,52 @@ jobs:
         # Function to validate curated release notes
         validate_curated_notes() {
           curated_file="$1"
-          json_error=false
-
-          # Check for valid JSON format
           if ! jq empty "$curated_file" 2>/dev/null; then
-            errors+=("Invalid JSON format in file: $curated_file")
-            json_error=true
+            echo "Invalid JSON format in file: $curated_file"
+            exit 1
           fi
 
-          # Attempt to parse even if JSON format is invalid
-          addon_name=$(jq -r '.addonName' "$curated_file" 2>/dev/null)
-          version=$(jq -r '.version' "$curated_file" 2>/dev/null)
-          release_date=$(jq -r '.releaseDate' "$curated_file" 2>/dev/null)
-          notes=$(jq -c '.notes' "$curated_file" 2>/dev/null)
+          addon_name=$(jq -r '.addonName' "$curated_file")
+          version=$(jq -r '.version' "$curated_file")
+          release_date=$(jq -r '.releaseDate' "$curated_file")
+          notes=$(jq -c '.notes' "$curated_file")
 
           if [[ -z "$addon_name" || -z "$version" || -z "$release_date" || -z "$notes" || "$notes" == "[]" ]]; then
-            errors+=("Missing required fields or empty values in curated release notes: $curated_file")
+            echo "Missing required fields or empty values in curated release notes: $curated_file"
+            exit 1
           fi
 
-          # Validate date format regardless of JSON error
           validate_date_format "$release_date"
 
-          # Validate each note in the notes array
-          if [[ "$notes" != "[]" ]]; then
-            jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
-              labels=$(echo "$note" | jq -r '.label[]' 2>/dev/null)
-              text=$(echo "$note" | jq -r '.text' 2>/dev/null)
+          # Check each note in the notes array
+          jq -c '.notes[]' "$curated_file" | while read -r note; do
+            labels=$(echo "$note" | jq -r '.label[]')
+            text=$(echo "$note" | jq -r '.text')
 
-              if [[ -z "$labels" || -z "$text" ]]; then
-                errors+=("Missing label or text in note in file: $curated_file")
-              else
-                # Convert labels to an array and validate each one
-                IFS=$'\n' read -rd '' -a label_array <<<"$labels"
-                validate_labels "${label_array[@]}"
-              fi
+            if [[ -z "$labels" || -z "$text" ]]; then
+              echo "Missing label or text in note in file: $curated_file"
+              exit 1
+            fi
+
+            # Validate each label
+            for label in $labels; do
+              validate_labels "$label"
             done
-          fi
+          done
         }
 
         # Function to validate raw release notes
         validate_raw_notes() {
           raw_file="$1"
           if ! grep -q "^source: " "$raw_file"; then
-            errors+=("Missing or incorrect source link in raw release notes: $raw_file")
+            echo "Missing or incorrect source link in raw release notes: $raw_file"
+            exit 1
           fi
 
           source_link=$(grep "^source: " "$raw_file" | awk '{print $2}')
           if ! curl --output /dev/null --silent --head --fail "$source_link"; then
-            errors+=("Invalid source link: $source_link in file: $raw_file")
+            echo "Invalid source link: $source_link in file: $raw_file"
+            exit 1
           fi
         }
 
@@ -109,13 +106,4 @@ jobs:
           validate_raw_notes "$raw_file"
         done
 
-        # Report errors
-        if [ ${#errors[@]} -ne 0 ]; then
-          echo "Errors found during linting:"
-          for error in "${errors[@]}"; do
-            echo "- $error"
-          done
-          exit 1
-        else
-          echo "All release notes are valid."
-        fi
+        echo "All release notes are valid."
