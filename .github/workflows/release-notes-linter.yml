@@ -70,22 +70,20 @@ jobs:
           # Validate date format regardless of JSON error
           validate_date_format "$release_date"
 
-          # Validate each note in the notes array regardless of JSON error
-          if [[ "$json_error" == false ]]; then
-            jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
-              labels=$(echo "$note" | jq -r '.label[]')
-              text=$(echo "$note" | jq -r '.text')
+          # Validate each note in the notes array
+          jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
+            labels=$(echo "$note" | jq -r '.label[]' 2>/dev/null)
+            text=$(echo "$note" | jq -r '.text' 2>/dev/null)
 
-              if [[ -z "$labels" || -z "$text" ]]; then
-                errors+=("Missing label or text in note in file: $curated_file")
-              fi
-
+            if [[ -z "$labels" || -z "$text" ]]; then
+              errors+=("Missing label or text in note in file: $curated_file")
+            else
               # Validate each label
               for label in $labels; do
                 validate_labels "$label"
               done
-            done
-          fi
+            fi
+          done
         }
 
         # Function to validate raw release notes
