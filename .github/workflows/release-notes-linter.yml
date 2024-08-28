@@ -38,8 +38,8 @@ jobs:
           labels=("$@")
           for label in "${labels[@]}"; do
             trimmed_label=$(echo "$label" | xargs)  # Trim spaces
-            if [[ ! " ${allowed_labels[@]} " =~ " $trimmed_label " ]]; then
-              echo "Invalid label: $trimmed_label. Allowed labels are: ${allowed_labels[*]}"
+            if [[ ! " ${allowed_labels[*]} " =~ " ${trimmed_label} " ]]; then
+              echo "Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}"
               exit 1
             fi
           done
@@ -67,19 +67,17 @@ jobs:
 
           # Check each note in the notes array
           jq -c '.notes[]' "$curated_file" | while read -r note; do
-            label=$(echo "$note" | jq -r '.label | join(", ")')
+            labels=$(echo "$note" | jq -r '.label[]')
             text=$(echo "$note" | jq -r '.text')
 
-            if [[ -z "$label" || -z "$text" ]]; then
+            if [[ -z "$labels" || -z "$text" ]]; then
               echo "Missing label or text in note in file: $curated_file"
               exit 1
             fi
 
-            # Split labels by comma and validate each
-            IFS=',' read -ra labels <<< "$label"
-            for i in "${labels[@]}"; do
-              trimmed_label=$(echo "$i" | xargs)  # Trim spaces
-              validate_labels "$trimmed_label"
+            # Validate each label
+            for label in $labels; do
+              validate_labels "$label"
             done
           done
         }
