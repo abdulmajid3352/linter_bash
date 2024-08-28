@@ -1,4 +1,4 @@
-source: https://github.com/redis/redis/releases/tag/7.2.5
+source: https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/releases/tag/1.6.0
 Upgrade urgency MODERATE: Program an upgrade of the server, but it's not urgent.
 Bug fixes
 =========
