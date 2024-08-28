@@ -40,7 +40,7 @@ jobs:
           labels=("$@")
           for label in "${labels[@]}"; do
             trimmed_label=$(echo "$label" | xargs)  # Trim spaces
-            if [[ ! " ${allowed_labels[@]} " =~ " ${trimmed_label} " ]]; then
+            if [[ ! " ${allowed_labels[*]} " =~ " ${trimmed_label} " ]]; then
               errors+=("Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}")
             fi
           done
@@ -71,18 +71,20 @@ jobs:
           validate_date_format "$release_date"
 
           # Validate each note in the notes array
-          jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
-            labels=$(echo "$note" | jq -r '.label[]' 2>/dev/null)
-            text=$(echo "$note" | jq -r '.text' 2>/dev/null)
+          if [[ "$notes" != "[]" ]]; then
+            jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
+              labels=$(echo "$note" | jq -r '.label[]' 2>/dev/null)
+              text=$(echo "$note" | jq -r '.text' 2>/dev/null)
 
-            if [[ -z "$labels" || -z "$text" ]]; then
-              errors+=("Missing label or text in note in file: $curated_file")
-            else
-              # Convert labels to an array and validate each one
-              IFS=$'\n' read -rd '' -a label_array <<<"$labels"
-              validate_labels "${label_array[@]}"
-            fi
-          done
+              if [[ -z "$labels" || -z "$text" ]]; then
+                errors+=("Missing label or text in note in file: $curated_file")
+              else
+                # Convert labels to an array and validate each one
+                IFS=$'\n' read -rd '' -a label_array <<<"$labels"
+                validate_labels "${label_array[@]}"
+              fi
+            done
+          fi
         }
 
         # Function to validate raw release notes
