@@ -1,14 +1,14 @@
 {
     "addonName": "redis-oss",
     "version": "7.2.5",
-    "releaseDate": "2024-05-19",
+    "releaseDate": "2024-05",
     "notes": [
         {
-            "label": ["kind/bug-fix", "impact/medium"],
+   
             "text": "Fixed an issue where a single-shard cluster left failed replicas in `CLUSTER SLOTS` and could not mark replicas as failed, and adjusted new cluster initialization to size 0 to reflect zero allocated slots."
         },
         {
-            "label": ["kind/bug-fix", "impact/medium"],
+            "label": [],
             "text": "Fixed a crash in the `LSET` command when replacing small items and exceeding 4GB by splitting the quicklist node when `lpReplace()` fails, creating a new node to handle the replacement, and merging nodes to prevent exceeding the 4GB limit."
         },
         {
