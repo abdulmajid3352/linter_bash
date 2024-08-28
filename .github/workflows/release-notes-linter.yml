@@ -49,34 +49,41 @@ jobs:
         # Function to validate curated release notes
         validate_curated_notes() {
           curated_file="$1"
+          json_error=false
+
+          # Check for valid JSON format
           if ! jq empty "$curated_file" 2>/dev/null; then
             errors+=("Invalid JSON format in file: $curated_file")
-            return
+            json_error=true
           fi
 
-          addon_name=$(jq -r '.addonName' "$curated_file")
-          version=$(jq -r '.version' "$curated_file")
-          release_date=$(jq -r '.releaseDate' "$curated_file")
-          notes=$(jq -c '.notes' "$curated_file")
+          # Attempt to parse even if JSON format is invalid
+          addon_name=$(jq -r '.addonName' "$curated_file" 2>/dev/null)
+          version=$(jq -r '.version' "$curated_file" 2>/dev/null)
+          release_date=$(jq -r '.releaseDate' "$curated_file" 2>/dev/null)
+          notes=$(jq -c '.notes' "$curated_file" 2>/dev/null)
 
           if [[ -z "$addon_name" || -z "$version" || -z "$release_date" || -z "$notes" || "$notes" == "[]" ]]; then
             errors+=("Missing required fields or empty values in curated release notes: $curated_file")
-          else
-            validate_date_format "$release_date"
+          fi
 
-            # Check each note in the notes array
-            jq -c '.notes[]' "$curated_file" | while read -r note; do
+          # Validate date format regardless of JSON error
+          validate_date_format "$release_date"
+
+          # Validate each note in the notes array regardless of JSON error
+          if [[ "$json_error" == false ]]; then
+            jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
               labels=$(echo "$note" | jq -r '.label[]')
               text=$(echo "$note" | jq -r '.text')
 
               if [[ -z "$labels" || -z "$text" ]]; then
                 errors+=("Missing label or text in note in file: $curated_file")
-              else
-                # Validate each label
-                for label in $labels; do
-                  validate_labels "$label"
-                done
               fi
+
+              # Validate each label
+              for label in $labels; do
+                validate_labels "$label"
+              done
             done
           fi
         }
@@ -86,7 +93,6 @@ jobs:
           raw_file="$1"
           if ! grep -q "^source: " "$raw_file"; then
             errors+=("Missing or incorrect source link in raw release notes: $raw_file")
-            return
           fi
 
           source_link=$(grep "^source: " "$raw_file" | awk '{print $2}')
