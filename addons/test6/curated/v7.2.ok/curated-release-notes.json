@@ -4,7 +4,7 @@
     "releaseDate": "2024-yy-19",
     "notes": [
         {
-            "label": ["kind/b-fix", "impact/medium"],
+            "label": ["kind/bug-fix", "impact/medium"],
             "text": "Fixed an issue where a single-shard cluster left failed replicas in `CLUSTER SLOTS` and could not mark replicas as failed, and adjusted new cluster initialization to size 0 to reflect zero allocated slots."
         },
         {
