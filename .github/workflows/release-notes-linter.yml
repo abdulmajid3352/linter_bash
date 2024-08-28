@@ -26,6 +26,8 @@ jobs:
         # Error tracking
         errors=()
 
+        echo "Starting validation of release notes..."
+
         # Function to validate date format
         validate_date_format() {
           date="$1"
@@ -49,6 +51,7 @@ jobs:
         # Function to validate curated release notes
         validate_curated_notes() {
           curated_file="$1"
+          echo "Validating curated release notes file: $curated_file"
           json_error=false
 
           # Check for valid JSON format
@@ -72,6 +75,7 @@ jobs:
 
           # Validate each note in the notes array
           if [[ "$notes" != "[]" ]]; then
+            echo "Validating notes in file: $curated_file"
             jq -c '.notes[]' "$curated_file" 2>/dev/null | while read -r note; do
               labels=$(echo "$note" | jq -r '.label[]' 2>/dev/null)
               text=$(echo "$note" | jq -r '.text' 2>/dev/null)
@@ -90,6 +94,7 @@ jobs:
         # Function to validate raw release notes
         validate_raw_notes() {
           raw_file="$1"
+          echo "Validating raw release notes file: $raw_file"
           if ! grep -q "^source: " "$raw_file"; then
             errors+=("Missing or incorrect source link in raw release notes: $raw_file")
           fi
@@ -110,6 +115,7 @@ jobs:
         done
 
         # Report errors
+        echo "Checking for accumulated errors..."
         if [ ${#errors[@]} -ne 0 ]; then
           echo "Errors found during linting:"
           for error in "${errors[@]}"; do
