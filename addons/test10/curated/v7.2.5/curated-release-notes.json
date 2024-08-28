@@ -1,10 +1,10 @@
 {
-    "addonName": "redis-oss",
-    "version": "v7.2.5",
-    "releaseDate": "2024-05-19",
+    "addonName": "redis-oss.1",
+    "version": "v7.2..m",
+    "releaseDate": "2024-05-9",
     "notes": [
         {
-            "label": ["kind/bug-fix", "impact/medium"],
+            "label": ["kind/big-fix", "impact/medium"],
             "text": "Fixed an issue where a single-shard cluster left failed replicas in `CLUSTER SLOTS` and could not mark replicas as failed, and adjusted new cluster initialization to size 0 to reflect zero allocated slots."
         },
         {
