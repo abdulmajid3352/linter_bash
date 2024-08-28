@@ -1,109 +1,82 @@
-name: Lint Release Notes
-
+name: Validate Curated Release Notes
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
-
 jobs:
-  lint:
+  validate-schema:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
-
-    - name: Install dependencies
-      run: sudo apt-get install -y jq curl
-
-    - name: Run linter script
-      run: |
-        #!/bin/bash
-
-        # Function to validate date format
-        validate_date_format() {
-          date="$1"
-          if ! [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-            echo "Invalid date format: $date. Expected format: YYYY-MM-DD."
-            exit 1
-          fi
-        }
-
-        # Function to validate allowed labels
-        validate_labels() {
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Validate JSON schema
+        run: |
+          error_count=0
           allowed_labels=("kind/bug-fix" "N/A" "kind/feature" "kind/upgrade-consideration" "kind/breaking-change" "kind/api-change" "kind/deprecation" "impact/high" "impact/medium")
-          labels=("$@")
-          for label in "${labels[@]}"; do
-            trimmed_label=$(echo "$label" | xargs)  # Trim spaces
-            if [[ ! " ${allowed_labels[*]} " =~ " ${trimmed_label} " ]]; then
-              echo "Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}"
-              exit 1
+          for file in addons/**/curated/**/curated-release-notes.json; do
+            echo "Validating $file"
+            # Extract directory version from the file path
+            dir_version=$(basename "$(dirname "$file")")
+            # Check if the JSON file contains required fields
+            if ! jq -e '.addonName and .version and .releaseDate and .notes' "$file" > /dev/null; then
+              echo "Error: $file is missing one or more required fields (addonName, version, releaseDate, notes)."
+              error_count=$((error_count + 1))
+              continue
             fi
-          done
-        }
-
-        # Function to validate curated release notes
-        validate_curated_notes() {
-          curated_file="$1"
-          if ! jq empty "$curated_file" 2>/dev/null; then
-            echo "Invalid JSON format in file: $curated_file"
-            exit 1
-          fi
-
-          addon_name=$(jq -r '.addonName' "$curated_file")
-          version=$(jq -r '.version' "$curated_file")
-          release_date=$(jq -r '.releaseDate' "$curated_file")
-          notes=$(jq -c '.notes' "$curated_file")
-
-          if [[ -z "$addon_name" || -z "$version" || -z "$release_date" || -z "$notes" || "$notes" == "[]" ]]; then
-            echo "Missing required fields or empty values in curated release notes: $curated_file"
-            exit 1
-          fi
-
-          validate_date_format "$release_date"
-
-          # Check each note in the notes array
-          jq -c '.notes[]' "$curated_file" | while read -r note; do
-            labels=$(echo "$note" | jq -r '.label[]')
-            text=$(echo "$note" | jq -r '.text')
-
-            if [[ -z "$labels" || -z "$text" ]]; then
-              echo "Missing label or text in note in file: $curated_file"
-              exit 1
+            # Validate releaseDate using a regular expression for format YYYY-MM-DD
+            release_date=$(jq -r '.releaseDate' "$file")
+            if [[ ! "$release_date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+              echo "Error: Invalid date format in $file. Expected YYYY-MM-DD."
+              error_count=$((error_count + 1))
+              continue
             fi
-
-            # Validate each label
-            for label in $labels; do
-              validate_labels "$label"
+            # Further validation using the date command to ensure it's a real date
+            if ! date -d "$release_date" +"%Y-%m-%d" > /dev/null 2>&1; then
+              echo "Error: Invalid date in $file. Expected a valid date in YYYY-MM-DD format."
+              error_count=$((error_count + 1))
+              continue
+            fi
+            # Check if 'notes' contains both 'label' and 'text', and validate them
+            notes_count=$(jq '.notes | length' "$file")
+            for i in $(seq 0 $((notes_count-1))); do
+              note_label=$(jq -r ".notes[$i].label[]" "$file")
+              note_text=$(jq -r ".notes[$i].text" "$file")
+              if [ -z "$note_label" ] || [ -z "$note_text" ]; then
+                echo "Error: Note entry $i in $file has an empty 'label' or 'text' field."
+                error_count=$((error_count + 1))
+                continue
+              fi
+              # Check if label is in the allowed list
+              for label in $note_label; do
+                if [[ ! " ${allowed_labels[@]} " =~ " $label " ]]; then
+                  echo "Error: Invalid label '$label' in note entry $i of $file. Allowed labels are: ${allowed_labels[*]}."
+                  error_count=$((error_count + 1))
+                fi
+              done
             done
+            echo "$file passed all validation checks."
           done
-        }
-
-        # Function to validate raw release notes
-        validate_raw_notes() {
-          raw_file="$1"
-          if ! grep -q "^source: " "$raw_file"; then
-            echo "Missing or incorrect source link in raw release notes: $raw_file"
+          for raw_file in addons/**/raw/**/raw-release-notes.txt; do
+            echo "Validating $raw_file"
+            # Check if the file contains a source line
+            source_line=$(grep -E "^source: https?://.*" "$raw_file" || true)
+            if [ -z "$source_line" ]; then
+              echo "Error: $raw_file does not contain a valid 'source: <link>' line."
+              error_count=$((error_count + 1))
+            else
+              # Extract the link from the source line
+              source_link=$(echo "$source_line" | awk '{print $2}')
+              # Check if the link is reachable using curl
+              if ! curl -o /dev/null -s --head --fail "$source_link"; then
+                echo "Error: The link in $raw_file is not reachable: $source_link"
+                error_count=$((error_count + 1))
+              fi
+            fi
+            echo "$raw_file passed all validation checks."
+          done
+          if [ $error_count -gt 0 ]; then
+            echo "Total errors: $error_count"
             exit 1
+          else
+            echo "All files passed validation checks."
           fi
-
-          source_link=$(grep "^source: " "$raw_file" | awk '{print $2}')
-          if ! curl --output /dev/null --silent --head --fail "$source_link"; then
-            echo "Invalid source link: $source_link in file: $raw_file"
-            exit 1
-          fi
-        }
-
-        # Find and validate all release notes
-        for curated_file in addons/*/curated/*/curated-release-notes.json; do
-          validate_curated_notes "$curated_file"
-        done
-
-        for raw_file in addons/*/raw/*/raw-release-notes.txt; do
-          validate_raw_notes "$raw_file"
-        done
-
-        echo "All release notes are valid."
