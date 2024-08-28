@@ -4,7 +4,7 @@
     "releaseDate": "2024-05-09",
     "notes": [
         {
-            "label": ["kind/big-fix", "impact/medium"],
+            "label": ["kind/baig-fix", "impact/medium"],
             "text": "Fixed an issue where a single-shard cluster left failed replicas in `CLUSTER SLOTS` and could not mark replicas as failed, and adjusted new cluster initialization to size 0 to reflect zero allocated slots."
         },
         {
