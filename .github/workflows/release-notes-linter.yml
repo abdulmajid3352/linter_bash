@@ -1,0 +1,17 @@
+name: Release Notes Linter
+
+on:
+  pull_request:
+    paths:
+      - 'addons/**'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Run release notes linter
+        run: |
+          bash .github/scripts/release-notes-linter.sh
