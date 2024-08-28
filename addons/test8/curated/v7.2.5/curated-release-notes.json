@@ -1,7 +1,7 @@
 {
     "addonName": "test8",
     "version": "7.2",
-    "releaseDate": "2024-kk-19",
+    "releaseDate": "2024-08-19",
     "notes": [
         {
             "label": ["kind/big-fix", "impact/medium"],
