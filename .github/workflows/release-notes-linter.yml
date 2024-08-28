@@ -23,12 +23,14 @@ jobs:
       run: |
         #!/bin/bash
 
+        # Error tracking
+        errors=()
+
         # Function to validate date format
         validate_date_format() {
           date="$1"
           if ! [[ "$date" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
-            echo "Invalid date format: $date. Expected format: YYYY-MM-DD."
-            exit 1
+            errors+=("Invalid date format: $date. Expected format: YYYY-MM-DD.")
           fi
         }
 
@@ -39,8 +41,7 @@ jobs:
           for label in "${labels[@]}"; do
             trimmed_label=$(echo "$label" | xargs)  # Trim spaces
             if [[ ! " ${allowed_labels[*]} " =~ " ${trimmed_label} " ]]; then
-              echo "Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}"
-              exit 1
+              errors+=("Invalid label: ${trimmed_label}. Allowed labels are: ${allowed_labels[*]}")
             fi
           done
         }
@@ -49,8 +50,8 @@ jobs:
         validate_curated_notes() {
           curated_file="$1"
           if ! jq empty "$curated_file" 2>/dev/null; then
-            echo "Invalid JSON format in file: $curated_file"
-            exit 1
+            errors+=("Invalid JSON format in file: $curated_file")
+            return
           fi
 
           addon_name=$(jq -r '.addonName' "$curated_file")
@@ -59,41 +60,38 @@ jobs:
           notes=$(jq -c '.notes' "$curated_file")
 
           if [[ -z "$addon_name" || -z "$version" || -z "$release_date" || -z "$notes" || "$notes" == "[]" ]]; then
-            echo "Missing required fields or empty values in curated release notes: $curated_file"
-            exit 1
-          fi
+            errors+=("Missing required fields or empty values in curated release notes: $curated_file")
+          else
+            validate_date_format "$release_date"
 
-          validate_date_format "$release_date"
+            # Check each note in the notes array
+            jq -c '.notes[]' "$curated_file" | while read -r note; do
+              labels=$(echo "$note" | jq -r '.label[]')
+              text=$(echo "$note" | jq -r '.text')
 
-          # Check each note in the notes array
-          jq -c '.notes[]' "$curated_file" | while read -r note; do
-            labels=$(echo "$note" | jq -r '.label[]')
-            text=$(echo "$note" | jq -r '.text')
-
-            if [[ -z "$labels" || -z "$text" ]]; then
-              echo "Missing label or text in note in file: $curated_file"
-              exit 1
-            fi
-
-            # Validate each label
-            for label in $labels; do
-              validate_labels "$label"
+              if [[ -z "$labels" || -z "$text" ]]; then
+                errors+=("Missing label or text in note in file: $curated_file")
+              else
+                # Validate each label
+                for label in $labels; do
+                  validate_labels "$label"
+                done
+              fi
             done
-          done
+          fi
         }
 
         # Function to validate raw release notes
         validate_raw_notes() {
           raw_file="$1"
           if ! grep -q "^source: " "$raw_file"; then
-            echo "Missing or incorrect source link in raw release notes: $raw_file"
-            exit 1
+            errors+=("Missing or incorrect source link in raw release notes: $raw_file")
+            return
           fi
 
           source_link=$(grep "^source: " "$raw_file" | awk '{print $2}')
           if ! curl --output /dev/null --silent --head --fail "$source_link"; then
-            echo "Invalid source link: $source_link in file: $raw_file"
-            exit 1
+            errors+=("Invalid source link: $source_link in file: $raw_file")
           fi
         }
 
@@ -106,4 +104,13 @@ jobs:
           validate_raw_notes "$raw_file"
         done
 
-        echo "All release notes are valid."
+        # Report errors
+        if [ ${#errors[@]} -ne 0 ]; then
+          echo "Errors found during linting:"
+          for error in "${errors[@]}"; do
+            echo "- $error"
+          done
+          exit 1
+        else
+          echo "All release notes are valid."
+        fi
