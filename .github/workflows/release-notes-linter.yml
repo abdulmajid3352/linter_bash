@@ -1,9 +1,6 @@
 name: Lint Release Notes
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
@@ -19,9 +16,33 @@ jobs:
     - name: Install dependencies
       run: sudo apt-get install -y jq curl
 
-    - name: Run linter script
+    - name: Determine Changed Files and Run Linter
+      env:
+        BASE_BRANCH: ${{ github.base_ref }}
       run: |
         #!/bin/bash
+
+        # Determine the target branch for comparison
+        BASE_BRANCH=${GITHUB_BASE_REF:-"main"}
+
+        # Fetch all branches to ensure proper diffing
+        git fetch origin $BASE_BRANCH
+
+        # Get the list of changed files between the PR and base branch
+        changed_files=$(git diff --name-only --diff-filter=d origin/$BASE_BRANCH HEAD)
+
+        # If no files are detected, fallback to list all files in the PR branch
+        if [[ -z "$changed_files" ]]; then
+          echo "No changed files detected; assuming all files are new in this PR."
+          changed_files=$(git ls-tree --name-only -r HEAD)
+        fi
+
+        echo "Changed files:"
+        echo "$changed_files"
+
+        # Filter only release note files (curated and raw) from the list of changed files
+        curated_files=$(echo "$changed_files" | grep -E 'addons/.*/curated/.*/curated-release-notes.json')
+        raw_files=$(echo "$changed_files" | grep -E 'addons/.*/raw/.*/raw-release-notes.txt')
 
         # Function to validate date format
         validate_date_format() {
@@ -97,13 +118,20 @@ jobs:
           fi
         }
 
-        # Find and validate all release notes
-        for curated_file in addons/*/curated/*/curated-release-notes.json; do
-          validate_curated_notes "$curated_file"
-        done
+        # Run validation only on changed curated files
+        if [[ -n "$curated_files" ]]; then
+          echo "Validating curated release notes..."
+          for curated_file in $curated_files; do
+            validate_curated_notes "$curated_file"
+          done
+        fi
 
-        for raw_file in addons/*/raw/*/raw-release-notes.txt; do
-          validate_raw_notes "$raw_file"
-        done
+        # Run validation only on changed raw files
+        if [[ -n "$raw_files" ]]; then
+          echo "Validating raw release notes..."
+          for raw_file in $raw_files; do
+            validate_raw_notes "$raw_file"
+          done
+        fi
 
-        echo "All release notes are valid."
+        echo "All changed release notes are valid."
