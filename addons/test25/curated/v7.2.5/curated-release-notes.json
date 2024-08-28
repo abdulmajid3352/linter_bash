@@ -24,7 +24,7 @@
             "text": "Fixed a bug in `redis-cli` where the `--count` option for commands like `--scan` and `--bigkeys` was ignored unless `--pattern` was also specified, ensuring `--count` is applied correctly regardless of `--pattern`."
         },
         {
-            "label": ["kind/bug-fix", "impact/medium"],
+            "label": ["kind/bug", "impact/medium"],
             "text": "Fixed a bug in `redis-check-aof` where it incorrectly identified valid AOF data as manifest format if the word 'file' appeared in the first 1024 lines. The updated logic stops checking after the first non-comment line, preventing false errors in AOF validation."
         }
     ]
