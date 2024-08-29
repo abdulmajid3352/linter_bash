@@ -1,7 +1,7 @@
 {
     "addonName": "redis-oss",
     "version": "7.2.5",
-    "releaseDate": "2024-05-oo",
+    "releaseDate": "2024-05-09",
     "notes": [
         {
             "label": ["kind/big-fix", "impact/medium"],
