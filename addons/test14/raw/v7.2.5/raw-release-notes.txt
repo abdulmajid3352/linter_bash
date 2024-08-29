@@ -1,0 +1,50 @@
+source: https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/releases/tag/1.5.0
+## What's Changed
+* :eyes:  Add support for workload identity by @cgroschupp in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/442
+* Authentication service secret efficiency change by @waterfoul in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/437
+* Increment counter for failed sync by @timbuchinger in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/450
+* Fix env lookup regex in env injector by @181192 in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/456
+* Fix regex and match group for env lookup akvs by @181192 in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/475
+* Pass environmental key vault suffix to client by @laozc in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/524
+* Increment Prometheus counter for keyvault sync failures by @sdwerwed in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/525
+* Fixes secret not found when label selector is set by @laozc in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/366
+* Fix some typos and add additional debug info to a couple of error mes… by @tspearconquest in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/560
+* :eyes:  Added SecurityContext capabilities. by @YouJinTou in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/548
+* Expose init container image pull policy by @181192 in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/561
+* Always serve /healthz endpoint for controller by @181192 in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/562
+
+## Helm chart
+* Remove unused 'ca.crt' key from 'Secret' resources by @tspearconquest in https://github.com/SparebankenVest/public-helm-charts/pull/87
+* Add labels to controller service account by @cgroschupp in https://github.com/SparebankenVest/public-helm-charts/pull/84
+* Fix controller labels indention fixes SparebankenVest/public-helm-charts#88 by @181192 in https://github.com/SparebankenVest/public-helm-charts/pull/89
+* Add labels to env-injector service account by @181192 in https://github.com/SparebankenVest/public-helm-charts/pull/90
+* Allow patch and update to azurekeyvaultsecrets/finalizers by @kptranum in https://github.com/SparebankenVest/public-helm-charts/pull/95
+* Adds probes to the controler and liveness probe to the env-injector by @LennartTimmers in https://github.com/SparebankenVest/public-helm-charts/pull/99
+* Initial implementation of custom RBAC subjects for environment injector by @tspearconquest in https://github.com/SparebankenVest/public-helm-charts/pull/107
+* Fix broken volumeMount when userDefinedMSI is enabled by @KenADev in https://github.com/SparebankenVest/public-helm-charts/pull/109
+* Support user-defined deployment strategies to allow setting custom ma… by @tspearconquest in https://github.com/SparebankenVest/public-helm-charts/pull/110
+* Allow deploying RBAC resources when controller and env_injector are disabled to support separation of privileges by @tspearconquest in https://github.com/SparebankenVest/public-helm-charts/pull/112
+* Remove leftover podsecuritypolicy references by @tspearconquest in https://github.com/SparebankenVest/public-helm-charts/pull/113
+
+### Chart and Image versions
+
+| Type         | Component                                                                                          | Version |
+| ------------ | -------------------------------------------------------------------------------------------------- | ------- |
+| Helm Chart   | [akv2k8s](https://github.com/SparebankenVest/public-helm-charts/tree/akv2k8s-2.5.0/stable/akv2k8s) | 2.5.0   |
+| Docker Image | spvest/azure-keyvault-controller                                                                   | 1.5.0   |
+| Docker Image | spvest/azure-keyvault-webhook                                                                      | 1.5.0   |
+| Docker Image | spvest/azure-keyvault-env                                                                          | 1.5.0   |
+
+## New Contributors
+* @waterfoul made their first contribution in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/437
+* @timbuchinger made their first contribution in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/450
+* @cgroschupp made their first contribution in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/442
+* @sdwerwed made their first contribution in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/525
+* @YouJinTou made their first contribution in https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/pull/548
+* @tspearconquest made their first contribution in https://github.com/SparebankenVest/public-helm-charts/pull/87
+* @cgroschupp made their first contribution in https://github.com/SparebankenVest/public-helm-charts/pull/84
+* @kptranum made their first contribution in https://github.com/SparebankenVest/public-helm-charts/pull/95
+* @LennartTimmers made their first contribution in https://github.com/SparebankenVest/public-helm-charts/pull/99
+* @KenADev made their first contribution in https://github.com/SparebankenVest/public-helm-charts/pull/109
+
+**Full Changelog**: https://github.com/SparebankenVest/azure-key-vault-to-kubernetes/compare/1.4.0...1.5.0
