@@ -12,6 +12,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq wget
+
       - name: Run release notes validation
         shell: bash
         run: |
@@ -22,6 +27,17 @@ jobs:
 
           # Initialize error count
           error_count=0
+
+          # Function to check if an element is in an array
+          function contains() {
+            local element
+            for element in "${@:2}"; do
+              if [[ "$element" == "$1" ]]; then
+                return 0
+              fi
+            done
+            return 1
+          }
 
           # Validate each curated release note file
           for file in addons/**/curated/**/curated-release-notes.json; do
